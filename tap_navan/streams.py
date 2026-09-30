@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
-from typing import Any
+from typing import Any, ClassVar
 
 from dateutil.relativedelta import relativedelta
 from hotglue_singer_sdk import typing as th  # JSON Schema typing helpers
@@ -20,7 +20,7 @@ class TransactionsStream(NavanStream):
 
     name = "transactions"
     path = "/expense/transactions"
-    primary_keys = ["id"]
+    primary_keys: ClassVar[list[str]] = ["id"]
     replication_key = "modified_timestamp"
 
     schema = th.PropertiesList(
@@ -123,9 +123,7 @@ class TransactionsStream(NavanStream):
 
         start_date_raw = self.config.get("start_date")
         if start_date_raw:
-            start = datetime.fromisoformat(
-                str(start_date_raw).replace("Z", "+00:00")
-            ).date()
+            start = datetime.fromisoformat(str(start_date_raw).replace("Z", "+00:00")).date()
         else:
             start = earliest_allowed
 
