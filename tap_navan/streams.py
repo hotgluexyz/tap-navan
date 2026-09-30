@@ -100,6 +100,20 @@ class TransactionsStream(NavanStream):
         th.Property("_type", th.StringType),
         th.Property("e_receipt", th.StringType),
         th.Property("e_receipt_navan", th.StringType),
+        # Card / Connect fields returned on NavanCardTransactionDetails (and related)
+        th.Property("source_id", th.StringType),
+        th.Property("card_description", th.StringType),
+        th.Property("card_source", th.StringType),
+        th.Property("activity_description", th.StringType),
+        th.Property("fx_fee_amount", th.StringType),
+        th.Property("accrued_rebate_amount", th.NumberType),
+        th.Property("rebate_type", th.StringType),
+        th.Property("affidavit", th.StringType),
+        th.Property(
+            "reporting_transaction_id",
+            th.StringType,
+            description="Connect card network transaction id (Visa/Mastercard)",
+        ),
     ).to_dict()
 
     def _transaction_date_bounds(self) -> tuple[date, date]:
@@ -128,7 +142,8 @@ class TransactionsStream(NavanStream):
         date_from, date_to = self._transaction_date_bounds()
         params.update(
             {
-                "type": "TRANSACTIONS,MANUAL_TRANSACTIONS",
+                # TRANSACTIONS = Navan cards; CONNECT = BYO cards; MANUAL = reimbursements
+                "type": "TRANSACTIONS,MANUAL_TRANSACTIONS,CONNECT",
                 "transaction_date.from": date_from.isoformat(),
                 "transaction_date.to": date_to.isoformat(),
                 "include_field_group": "ERP",
