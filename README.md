@@ -14,7 +14,7 @@ A [Singer](https://www.singer.io/) tap that extracts data from **Navan**. It is 
 
 | Stream | Endpoint / notes | Primary key | Replication key |
 | ------ | ---------------- | ----------- | ----------------- |
-| `transactions` | `GET /expense/transactions` (`type=TRANSACTIONS,MANUAL_TRANSACTIONS`, `include_field_group=ERP`) | `id` | `modified_timestamp` |
+| `transactions` | `GET /expense/transactions` (`type=TRANSACTIONS,MANUAL_TRANSACTIONS,CONNECT`, `include_field_group=ERP`) — Navan cards, Connect cards, and manual reimbursements | `id` | `modified_timestamp` |
 
 Pagination uses `has_next` with a numeric `page` query param. `transaction_date.from` / `transaction_date.to` are required and must fall within the last ~2 months (the tap clamps `start_date` accordingly).
 
