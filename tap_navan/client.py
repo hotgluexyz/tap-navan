@@ -52,11 +52,11 @@ class NavanStream(RESTStream):
         response: requests.Response,
         previous_token: Any | None,
     ) -> Any | None:
-        """Return the next page index when ``has_next`` is true."""
-        if not response.json().get("has_next"):
+        """Return ``next_cursor`` when ``has_next`` is true."""
+        body = response.json()
+        if not body.get("has_next"):
             return None
-        page = 0 if previous_token is None else int(previous_token)
-        return page + 1
+        return body["next_cursor"]
 
     @override
     def get_url_params(
@@ -68,12 +68,12 @@ class NavanStream(RESTStream):
 
         Args:
             context: The stream context.
-            next_page_token: The next page index or value.
+            next_page_token: Cursor from the previous response's ``next_cursor``.
 
         Returns:
             A dictionary of URL query parameters.
         """
         params: dict[str, Any] = {}
         if next_page_token is not None:
-            params["page"] = next_page_token
+            params["cursor"] = next_page_token
         return params

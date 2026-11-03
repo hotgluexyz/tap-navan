@@ -19,7 +19,7 @@ class TransactionsStream(NavanStream):
     """Stream for Navan expense transactions."""
 
     name = "transactions"
-    path = "/expense/transactions"
+    path = "/expense/transactions?erp_sync_status=READY_TO_EXPORT"
     primary_keys: ClassVar[list[str]] = ["id"]
     replication_key = "modified_timestamp"
 
