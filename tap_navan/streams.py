@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
-from typing import Any
+from typing import Any, ClassVar
 
 from dateutil.relativedelta import relativedelta
 from hotglue_singer_sdk import typing as th  # JSON Schema typing helpers
@@ -20,7 +20,7 @@ class TransactionsStream(NavanStream):
 
     name = "transactions"
     path = "/expense/transactions"
-    primary_keys = ["id"]
+    primary_keys: ClassVar[list[str]] = ["id"]
     replication_key = "modified_timestamp"
 
     schema = th.PropertiesList(
@@ -100,6 +100,20 @@ class TransactionsStream(NavanStream):
         th.Property("_type", th.StringType),
         th.Property("e_receipt", th.StringType),
         th.Property("e_receipt_navan", th.StringType),
+        # Card / Connect fields returned on NavanCardTransactionDetails (and related)
+        th.Property("source_id", th.StringType),
+        th.Property("card_description", th.StringType),
+        th.Property("card_source", th.StringType),
+        th.Property("activity_description", th.StringType),
+        th.Property("fx_fee_amount", th.StringType),
+        th.Property("accrued_rebate_amount", th.NumberType),
+        th.Property("rebate_type", th.StringType),
+        th.Property("affidavit", th.StringType),
+        th.Property(
+            "reporting_transaction_id",
+            th.StringType,
+            description="Connect card network transaction id (Visa/Mastercard)",
+        ),
     ).to_dict()
 
     def _transaction_date_bounds(self) -> tuple[date, date]:
@@ -109,9 +123,7 @@ class TransactionsStream(NavanStream):
 
         start_date_raw = self.config.get("start_date")
         if start_date_raw:
-            start = datetime.fromisoformat(
-                str(start_date_raw).replace("Z", "+00:00")
-            ).date()
+            start = datetime.fromisoformat(str(start_date_raw).replace("Z", "+00:00")).date()
         else:
             start = earliest_allowed
 
@@ -128,7 +140,8 @@ class TransactionsStream(NavanStream):
         date_from, date_to = self._transaction_date_bounds()
         params.update(
             {
-                "type": "TRANSACTIONS,MANUAL_TRANSACTIONS",
+                # TRANSACTIONS = Navan cards; CONNECT = BYO cards; MANUAL = reimbursements
+                "type": "TRANSACTIONS,MANUAL_TRANSACTIONS,CONNECT",
                 "transaction_date.from": date_from.isoformat(),
                 "transaction_date.to": date_to.isoformat(),
                 "include_field_group": "ERP",
