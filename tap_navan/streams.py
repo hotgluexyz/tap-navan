@@ -67,6 +67,21 @@ class TransactionsStream(NavanStream):
         th.Property("traveler_subsidiary", th.StringType),
         th.Property("traveler_cost_center", th.StringType),
         th.Property("traveler_user_attributes", th.ObjectType()),
+        th.Property(
+            "trip_uuid",
+            th.StringType,
+            description="Linked trip UUID (travel bookings only)",
+        ),
+        th.Property(
+            "trip_name",
+            th.StringType,
+            description="Linked trip name (travel bookings only)",
+        ),
+        th.Property(
+            "trip_purpose",
+            th.StringType,
+            description="Linked trip purpose / reason for travel",
+        ),
         th.Property("invoice_date", th.DateType),
         th.Property("invoice_number", th.StringType),
         th.Property("participants", th.StringType),
@@ -144,7 +159,16 @@ class TransactionsStream(NavanStream):
                 "type": "TRANSACTIONS,MANUAL_TRANSACTIONS,CONNECT",
                 "transaction_date.from": date_from.isoformat(),
                 "transaction_date.to": date_to.isoformat(),
-                "include_field_group": "ERP",
+                # BOOKING adds travel/booking fields (trip_*); ERP alone omits them.
+                "include_field_group": "ERP,BOOKING",
             }
         )
         return params
+
+    @override
+    def post_process(self, row: dict, context: dict | None = None) -> dict | None:
+        """Promote trip_* from booking_details onto the record root."""
+        booking = row.get("booking_details") or {}
+        for key in ("trip_uuid", "trip_name", "trip_purpose"):
+            row.setdefault(key, booking.get(key))
+        return row
