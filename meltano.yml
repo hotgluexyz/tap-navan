@@ -32,19 +32,16 @@ plugins:
     - name: start_date
       kind: date_iso8601
       label: Start Date
-      description: Earliest transaction_date to sync (clamped to Navan's ~2-month lookback)
+      description: Optional earliest date_modified when no bookmark exists yet (clamped to Navan's ~2-month lookback). Ignored once stream state has a bookmark.
 
     - name: api_url
       label: API URL
       description: Base URL for the Navan API
 
-    # TODO: Declare required settings here:
     settings_group_validation:
     - [client_id, client_secret]
 
-    # TODO: Declare default configuration values here:
     config:
-      start_date: 6 months ago
       api_url: https://api.navan.com/v1
 
   loaders:

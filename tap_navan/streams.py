@@ -11,8 +11,8 @@ from typing_extensions import override
 
 from tap_navan.client import NavanStream
 
-# Navan rejects transaction_date ranges outside this lookback window.
-_MAX_TRANSACTION_DATE_LOOKBACK = relativedelta(months=2)
+# Navan rejects date filter ranges outside this lookback window.
+_MAX_DATE_LOOKBACK = relativedelta(months=2)
 
 
 class TransactionsStream(NavanStream):
@@ -131,16 +131,42 @@ class TransactionsStream(NavanStream):
         ),
     ).to_dict()
 
-    def _transaction_date_bounds(self) -> tuple[date, date]:
-        """Return a transaction_date range within Navan's 2-month lookback limit."""
-        today = datetime.now(timezone.utc).date()
-        earliest_allowed = today - _MAX_TRANSACTION_DATE_LOOKBACK
+    def _parse_timestamp(self, value: Any) -> datetime:
+        """Parse an API / state timestamp into a timezone-aware UTC datetime."""
+        ts = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return ts
+
+    def _replication_start(self, context: dict | None) -> datetime | None:
+        """Return bookmark if present, else config start_date.
+
+        Avoids get_starting_timestamp, which folds start_date into the SDK
+        starting_replication_value and can override a newer bookmark.
+        """
+        state = self.get_context_state(context) or {}
+        bookmark = state.get("replication_key_value")
+        if bookmark is not None:
+            return self._parse_timestamp(bookmark)
 
         start_date_raw = self.config.get("start_date")
         if start_date_raw:
-            start = datetime.fromisoformat(str(start_date_raw).replace("Z", "+00:00")).date()
-        else:
-            start = earliest_allowed
+            return self._parse_timestamp(start_date_raw)
+        return None
+
+    def _date_modified_bounds(self, context: dict | None) -> tuple[date, date]:
+        """Return a date_modified range within Navan's lookback limit.
+
+        Prefers the stream bookmark, then config start_date, then Navan's max
+        lookback.
+        """
+        today = datetime.now(timezone.utc).date()
+        earliest_allowed = today - _MAX_DATE_LOOKBACK
+        start = earliest_allowed
+
+        starting = self._replication_start(context)
+        if starting is not None:
+            start = starting.date()
 
         return max(start, earliest_allowed), today
 
@@ -152,13 +178,13 @@ class TransactionsStream(NavanStream):
     ) -> dict[str, Any]:
         """Add transaction filters required by the expense transactions endpoint."""
         params = super().get_url_params(context, next_page_token)
-        date_from, date_to = self._transaction_date_bounds()
+        date_from, date_to = self._date_modified_bounds(context)
         params.update(
             {
                 # TRANSACTIONS = Navan cards; CONNECT = BYO cards; MANUAL = reimbursements
                 "type": "TRANSACTIONS,MANUAL_TRANSACTIONS,CONNECT",
-                "transaction_date.from": date_from.isoformat(),
-                "transaction_date.to": date_to.isoformat(),
+                "date_modified.from": date_from.isoformat(),
+                "date_modified.to": date_to.isoformat(),
                 # BOOKING adds travel/booking fields (trip_*); ERP alone omits them.
                 "include_field_group": "ERP,BOOKING",
             }
@@ -167,8 +193,15 @@ class TransactionsStream(NavanStream):
 
     @override
     def post_process(self, row: dict, context: dict | None = None) -> dict | None:
-        """Promote trip_* from booking_details onto the record root."""
+        """Promote trip_* from booking_details; drop records at or before bookmark."""
         booking = row.get("booking_details") or {}
         for key in ("trip_uuid", "trip_name", "trip_purpose"):
             row.setdefault(key, booking.get(key))
+
+        # date_modified filters are day-granular - skip already-synced rows.
+        starting = self._replication_start(context)
+        if starting is not None:
+            rep_key = row.get(self.replication_key)
+            if rep_key is not None and self._parse_timestamp(rep_key) <= starting:
+                return None
         return row
