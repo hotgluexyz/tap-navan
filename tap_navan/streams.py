@@ -148,9 +148,7 @@ class TransactionsStream(NavanStream):
         if self.config.get("start_date_override"):
             start_date_raw = self.config.get("start_date")
             if start_date_raw:
-                start = datetime.fromisoformat(
-                    str(start_date_raw).replace("Z", "+00:00")
-                ).date()
+                start = datetime.fromisoformat(str(start_date_raw).replace("Z", "+00:00")).date()
 
         return max(start, earliest_allowed), today
 
@@ -188,9 +186,7 @@ class TransactionsStream(NavanStream):
             if starting is not None:
                 rep_key = row.get(self.replication_key)
                 if rep_key is not None:
-                    record_ts = datetime.fromisoformat(
-                        str(rep_key).replace("Z", "+00:00")
-                    )
+                    record_ts = datetime.fromisoformat(str(rep_key).replace("Z", "+00:00"))
                     if record_ts.tzinfo is None:
                         record_ts = record_ts.replace(tzinfo=timezone.utc)
                     if starting.tzinfo is None:
