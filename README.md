@@ -18,7 +18,7 @@ A [Singer](https://www.singer.io/) tap that extracts data from **Navan**. It is 
 
 Includes travel-linked fields `trip_uuid`, `trip_name`, and `trip_purpose` (from the `BOOKING` field group / `booking_details`, promoted to the record root).
 
-Pagination uses `has_next` with the response `next_cursor` passed as the `cursor` query param. Requests filter with `date_modified.from` / `date_modified.to` (bookmark preferred, else optional `start_date`, else Navan ~2-month lookback). Because those filters are day-granular, the tap also drops records at or before the bookmark timestamp.
+Pagination uses `has_next` with the response `next_cursor` passed as the `cursor` query param. Requests filter with `date_modified.from` / `date_modified.to` (stream bookmark if present, else optional `start_date`, else Navan ~2-month lookback). Because those filters are day-granular, the tap also drops records at or before that starting timestamp.
 
 ## Requirements
 
@@ -53,7 +53,7 @@ tap-navan --help
 
 | Setting | Type | Required | Default | Description |
 | ------- | ---- | -------- | ------- | ----------- |
-| `start_date` | string (datetime) | no | — | Optional earliest `date_modified` on a first sync (clamped to Navan's ~2-month lookback). Ignored in favor of the stream bookmark once state exists. |
+| `start_date` | string (datetime) | no | — | Optional earliest `date_modified` when no bookmark exists yet (clamped to Navan's ~2-month lookback). Ignored once stream state has a bookmark. |
 | `api_url` | string | no | `https://api.navan.com/v1` | Base URL for the API. |
 | `client_id` | string | yes | — | OAuth client ID. |
 | `client_secret` | string | yes | — | OAuth client secret. |

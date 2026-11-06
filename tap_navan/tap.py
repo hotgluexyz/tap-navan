@@ -29,9 +29,9 @@ class TapNavan(Tap):
             "start_date",
             th.DateTimeType,
             description=(
-                "Optional earliest date_modified on a first sync (clamped to "
-                "Navan's ~2-month lookback). Once state exists, the stream "
-                "bookmark is preferred."
+                "Optional earliest date_modified when no bookmark exists yet "
+                "(clamped to Navan's ~2-month lookback). Ignored once stream "
+                "state has a bookmark."
             ),
         ),
         th.Property(
