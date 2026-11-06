@@ -141,20 +141,16 @@ class TransactionsStream(NavanStream):
     def _date_modified_bounds(self, context: dict | None) -> tuple[date, date]:
         """Return a date_modified range within Navan's lookback limit.
 
-        Uses config start_date when set - otherwise the stream bookmark, then
-        Navan's max lookback.
+        Prefers the stream bookmark (via get_starting_timestamp), then config
+        start_date on a first sync, then Navan's max lookback.
         """
         today = datetime.now(timezone.utc).date()
         earliest_allowed = today - _MAX_DATE_LOOKBACK
         start = earliest_allowed
 
-        start_date_raw = self.config.get("start_date")
-        if start_date_raw:
-            start = self._parse_timestamp(start_date_raw).date()
-        else:
-            bookmark = self.get_starting_timestamp(context)
-            if bookmark is not None:
-                start = bookmark.date()
+        bookmark = self.get_starting_timestamp(context)
+        if bookmark is not None:
+            start = bookmark.date()
 
         return max(start, earliest_allowed), today
 
@@ -187,15 +183,13 @@ class TransactionsStream(NavanStream):
             row.setdefault(key, booking.get(key))
 
         # date_modified filters are day-granular - skip already-synced rows.
-        # When start_date is set it owns the window; do not also filter by bookmark.
-        if not self.config.get("start_date"):
-            starting = self.get_starting_timestamp(context)
-            if starting is not None:
-                rep_key = row.get(self.replication_key)
-                if rep_key is not None:
-                    record_ts = self._parse_timestamp(rep_key)
-                    if starting.tzinfo is None:
-                        starting = starting.replace(tzinfo=timezone.utc)
-                    if record_ts <= starting:
-                        return None
+        starting = self.get_starting_timestamp(context)
+        if starting is not None:
+            rep_key = row.get(self.replication_key)
+            if rep_key is not None:
+                record_ts = self._parse_timestamp(rep_key)
+                if starting.tzinfo is None:
+                    starting = starting.replace(tzinfo=timezone.utc)
+                if record_ts <= starting:
+                    return None
         return row

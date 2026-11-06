@@ -32,7 +32,7 @@ plugins:
     - name: start_date
       kind: date_iso8601
       label: Start Date
-      description: Optional earliest date_modified to sync (clamped to Navan's ~2-month lookback). When unset, uses bookmark or Navan lookback.
+      description: Optional earliest date_modified on a first sync (clamped to Navan's ~2-month lookback). Once state exists, the stream bookmark is preferred.
 
     - name: api_url
       label: API URL
