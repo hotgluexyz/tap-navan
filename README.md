@@ -7,8 +7,8 @@ A [Singer](https://www.singer.io/) tap that extracts data from **Navan**. It is 
 - **REST**-style HTTP streams (see `client.py` / `streams.py`).
 - **OAuth2** `client_credentials` grant via Hotglue (`access_token_support` on the tap).
 
-- Configurable **`api_url`** and optional **`start_date`** (see [Configuration](#configuration)).
-- Incremental sync via **`modified_timestamp`** (bookmark); API queries still use a `transaction_date` window.
+- Configurable **`api_url`**, optional **`start_date`**, and **`start_date_override`** (see [Configuration](#configuration)).
+- Incremental sync via **`modified_timestamp`** bookmark, applied as Navan **`date_modified.from` / `date_modified.to`** query filters.
 
 ### Streams
 
@@ -18,7 +18,7 @@ A [Singer](https://www.singer.io/) tap that extracts data from **Navan**. It is 
 
 Includes travel-linked fields `trip_uuid`, `trip_name`, and `trip_purpose` (from the `BOOKING` field group / `booking_details`, promoted to the record root).
 
-Pagination uses `has_next` with the response `next_cursor` passed as the `cursor` query param. `transaction_date.from` / `transaction_date.to` are required and must fall within the last ~2 months (the tap clamps `start_date` accordingly).
+Pagination uses `has_next` with the response `next_cursor` passed as the `cursor` query param. Requests filter with `date_modified.from` / `date_modified.to` (bookmark or Navan ~2-month lookback). Because those filters are day-granular, the tap also drops records at or before the bookmark timestamp. Config `start_date` is only applied when `start_date_override` is true.
 
 ## Requirements
 
@@ -53,7 +53,8 @@ tap-navan --help
 
 | Setting | Type | Required | Default | Description |
 | ------- | ---- | -------- | ------- | ----------- |
-| `start_date` | string (datetime) | no | `2000-01-01T00:00:00Z` | Earliest `transaction_date` to sync (clamped to Navan's ~2-month lookback). |
+| `start_date` | string (datetime) | no | `2000-01-01T00:00:00Z` | Earliest `date_modified` when `start_date_override` is true (clamped to Navan's ~2-month lookback). |
+| `start_date_override` | boolean | no | `false` | When true, use `start_date` as `date_modified.from`. When false, use the stream bookmark or Navan lookback and ignore `start_date`. |
 | `api_url` | string | no | `https://api.navan.com/v1` | Base URL for the API. |
 | `client_id` | string | yes | — | OAuth client ID. |
 | `client_secret` | string | yes | — | OAuth client secret. |
@@ -64,7 +65,7 @@ Run `tap-navan --about` (or `tap-navan --about --format=markdown`) for the autho
 
 ```json
 {
-  "start_date": "2000-01-01T00:00:00Z",
+  "start_date_override": false,
   "api_url": "https://api.navan.com/v1",
   "client_id": "YOUR_CLIENT_ID",
   "client_secret": "YOUR_CLIENT_SECRET"

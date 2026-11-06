@@ -32,19 +32,22 @@ plugins:
     - name: start_date
       kind: date_iso8601
       label: Start Date
-      description: Earliest transaction_date to sync (clamped to Navan's ~2-month lookback)
+      description: Earliest date_modified to sync when start_date_override is true (clamped to Navan's ~2-month lookback)
+
+    - name: start_date_override
+      kind: boolean
+      label: Start Date Override
+      description: When true, use start_date as date_modified.from. When false (default), use bookmark or Navan lookback.
 
     - name: api_url
       label: API URL
       description: Base URL for the Navan API
 
-    # TODO: Declare required settings here:
     settings_group_validation:
     - [client_id, client_secret]
 
-    # TODO: Declare default configuration values here:
     config:
-      start_date: 6 months ago
+      start_date_override: false
       api_url: https://api.navan.com/v1
 
   loaders:

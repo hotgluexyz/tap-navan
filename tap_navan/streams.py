@@ -11,8 +11,8 @@ from typing_extensions import override
 
 from tap_navan.client import NavanStream
 
-# Navan rejects transaction_date ranges outside this lookback window.
-_MAX_TRANSACTION_DATE_LOOKBACK = relativedelta(months=2)
+# Navan rejects date filter ranges outside this lookback window.
+_MAX_DATE_LOOKBACK = relativedelta(months=2)
 
 
 class TransactionsStream(NavanStream):
@@ -131,16 +131,26 @@ class TransactionsStream(NavanStream):
         ),
     ).to_dict()
 
-    def _transaction_date_bounds(self) -> tuple[date, date]:
-        """Return a transaction_date range within Navan's 2-month lookback limit."""
-        today = datetime.now(timezone.utc).date()
-        earliest_allowed = today - _MAX_TRANSACTION_DATE_LOOKBACK
+    def _date_modified_bounds(self, context: dict | None) -> tuple[date, date]:
+        """Return a date_modified range within Navan's lookback limit.
 
-        start_date_raw = self.config.get("start_date")
-        if start_date_raw:
-            start = datetime.fromisoformat(str(start_date_raw).replace("Z", "+00:00")).date()
-        else:
-            start = earliest_allowed
+        Uses the stream bookmark when present. Config start_date is applied
+        only when start_date_override is true.
+        """
+        today = datetime.now(timezone.utc).date()
+        earliest_allowed = today - _MAX_DATE_LOOKBACK
+        start = earliest_allowed
+
+        bookmark = self.get_starting_timestamp(context)
+        if bookmark is not None:
+            start = bookmark.date()
+
+        if self.config.get("start_date_override"):
+            start_date_raw = self.config.get("start_date")
+            if start_date_raw:
+                start = datetime.fromisoformat(
+                    str(start_date_raw).replace("Z", "+00:00")
+                ).date()
 
         return max(start, earliest_allowed), today
 
@@ -152,13 +162,13 @@ class TransactionsStream(NavanStream):
     ) -> dict[str, Any]:
         """Add transaction filters required by the expense transactions endpoint."""
         params = super().get_url_params(context, next_page_token)
-        date_from, date_to = self._transaction_date_bounds()
+        date_from, date_to = self._date_modified_bounds(context)
         params.update(
             {
                 # TRANSACTIONS = Navan cards; CONNECT = BYO cards; MANUAL = reimbursements
                 "type": "TRANSACTIONS,MANUAL_TRANSACTIONS,CONNECT",
-                "transaction_date.from": date_from.isoformat(),
-                "transaction_date.to": date_to.isoformat(),
+                "date_modified.from": date_from.isoformat(),
+                "date_modified.to": date_to.isoformat(),
                 # BOOKING adds travel/booking fields (trip_*); ERP alone omits them.
                 "include_field_group": "ERP,BOOKING",
             }
@@ -167,8 +177,25 @@ class TransactionsStream(NavanStream):
 
     @override
     def post_process(self, row: dict, context: dict | None = None) -> dict | None:
-        """Promote trip_* from booking_details onto the record root."""
+        """Promote trip_* from booking_details; drop records at or before bookmark."""
         booking = row.get("booking_details") or {}
         for key in ("trip_uuid", "trip_name", "trip_purpose"):
             row.setdefault(key, booking.get(key))
+
+        # date_modified filters are day-granular - skip already-synced rows.
+        if not self.config.get("start_date_override"):
+            starting = self.get_starting_timestamp(context)
+            if starting is not None:
+                rep_key = row.get(self.replication_key)
+                if rep_key is not None:
+                    record_ts = datetime.fromisoformat(
+                        str(rep_key).replace("Z", "+00:00")
+                    )
+                    if record_ts.tzinfo is None:
+                        record_ts = record_ts.replace(tzinfo=timezone.utc)
+                    if starting.tzinfo is None:
+                        starting = starting.replace(tzinfo=timezone.utc)
+                    # Filter out records at or before bookmark.
+                    if record_ts <= starting:
+                        return None
         return row
