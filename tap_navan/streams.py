@@ -131,24 +131,30 @@ class TransactionsStream(NavanStream):
         ),
     ).to_dict()
 
+    def _parse_timestamp(self, value: Any) -> datetime:
+        """Parse an API / state timestamp into a timezone-aware UTC datetime."""
+        ts = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return ts
+
     def _date_modified_bounds(self, context: dict | None) -> tuple[date, date]:
         """Return a date_modified range within Navan's lookback limit.
 
-        Uses the stream bookmark when present. Config start_date is applied
-        only when start_date_override is true.
+        Uses config start_date when set - otherwise the stream bookmark, then
+        Navan's max lookback.
         """
         today = datetime.now(timezone.utc).date()
         earliest_allowed = today - _MAX_DATE_LOOKBACK
         start = earliest_allowed
 
-        bookmark = self.get_starting_timestamp(context)
-        if bookmark is not None:
-            start = bookmark.date()
-
-        if self.config.get("start_date_override"):
-            start_date_raw = self.config.get("start_date")
-            if start_date_raw:
-                start = datetime.fromisoformat(str(start_date_raw).replace("Z", "+00:00")).date()
+        start_date_raw = self.config.get("start_date")
+        if start_date_raw:
+            start = self._parse_timestamp(start_date_raw).date()
+        else:
+            bookmark = self.get_starting_timestamp(context)
+            if bookmark is not None:
+                start = bookmark.date()
 
         return max(start, earliest_allowed), today
 
@@ -181,17 +187,15 @@ class TransactionsStream(NavanStream):
             row.setdefault(key, booking.get(key))
 
         # date_modified filters are day-granular - skip already-synced rows.
-        if not self.config.get("start_date_override"):
+        # When start_date is set it owns the window; do not also filter by bookmark.
+        if not self.config.get("start_date"):
             starting = self.get_starting_timestamp(context)
             if starting is not None:
                 rep_key = row.get(self.replication_key)
                 if rep_key is not None:
-                    record_ts = datetime.fromisoformat(str(rep_key).replace("Z", "+00:00"))
-                    if record_ts.tzinfo is None:
-                        record_ts = record_ts.replace(tzinfo=timezone.utc)
+                    record_ts = self._parse_timestamp(rep_key)
                     if starting.tzinfo is None:
                         starting = starting.replace(tzinfo=timezone.utc)
-                    # Filter out records at or before bookmark.
                     if record_ts <= starting:
                         return None
         return row

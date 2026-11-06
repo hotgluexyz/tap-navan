@@ -29,21 +29,10 @@ class TapNavan(Tap):
             "start_date",
             th.DateTimeType,
             description=(
-                "Earliest date_modified to sync when start_date_override is true. "
-                "Navan only allows a lookback of about 2 months. Older values are "
-                "clamped."
+                "Optional earliest date_modified to sync (clamped to Navan's "
+                "~2-month lookback). When unset, the stream bookmark is used, "
+                "or Navan's max lookback on a first sync."
             ),
-            default="2000-01-01T00:00:00Z",
-        ),
-        th.Property(
-            "start_date_override",
-            th.BooleanType,
-            description=(
-                "When true, use start_date as date_modified.from (clamped). "
-                "When false (default), use the stream bookmark or Navan's max "
-                "lookback and ignore start_date."
-            ),
-            default=False,
         ),
         th.Property(
             "api_url",
