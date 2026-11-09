@@ -24,16 +24,15 @@ class TapNavan(Tap):
 
     name = "tap-navan"
 
-    # TODO: Update this section with the actual config values you expect:
     config_jsonschema = th.PropertiesList(
         th.Property(
             "start_date",
             th.DateTimeType,
             description=(
-                "Earliest transaction_date to sync. Navan only allows a lookback "
-                "of about 2 months; older values are clamped."
+                "Optional earliest date_modified when no bookmark exists yet "
+                "(clamped to Navan's ~2-month lookback). Ignored once stream "
+                "state has a bookmark."
             ),
-            default="2000-01-01T00:00:00Z",
         ),
         th.Property(
             "api_url",
