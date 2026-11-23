@@ -15,6 +15,7 @@ A [Singer](https://www.singer.io/) tap that extracts data from **Navan**. It is 
 | Stream | Endpoint / notes | Primary key | Replication key |
 | ------ | ---------------- | ----------- | ----------------- |
 | `transactions` | `GET /expense/transactions` (`type=TRANSACTIONS,MANUAL_TRANSACTIONS,CONNECT`, `include_field_group=ERP,BOOKING`) — Navan cards, Connect cards, and manual reimbursements | `id` | `modified_timestamp` |
+| `statement_payments` | `GET /expense/statement-payments` (`include_field_group=ERP`; no `erp_sync_status` / `type` filters) — card statement payments/refunds. Payment `posted_amount` is negative; Refund is positive. | `id` | `modified_timestamp` |
 
 Includes travel-linked fields `trip_uuid`, `trip_name`, and `trip_purpose` (from the `BOOKING` field group / `booking_details`, promoted to the record root).
 
