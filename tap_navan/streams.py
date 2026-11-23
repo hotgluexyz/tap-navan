@@ -220,9 +220,7 @@ class StatementPaymentsStream(TransactionsStream):
         next_page_token: Any | None,
     ) -> dict[str, Any]:
         """Date-modified bounds only — no transactions filter."""
-        params = super(TransactionsStream, self).get_url_params(
-            context, next_page_token
-        )
+        params = super(TransactionsStream, self).get_url_params(context, next_page_token)
         date_from, date_to = self._date_modified_bounds(context)
         params.update(
             {
@@ -237,7 +235,7 @@ class StatementPaymentsStream(TransactionsStream):
     def post_process(self, row: dict, context: dict | None = None) -> dict | None:
         """Drop statement payment refunds.
 
-           These aren't currently supported by the integration.
+        These aren't currently supported by the integration.
         """
         if row.get("activity_type") == "Statement Payment Refund":
             return None
