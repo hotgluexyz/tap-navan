@@ -205,3 +205,40 @@ class TransactionsStream(NavanStream):
             if rep_key is not None and self._parse_timestamp(rep_key) <= starting:
                 return None
         return row
+
+
+class StatementPaymentsStream(TransactionsStream):
+    """Stream for Navan expense statement payments (excludes refunds)."""
+
+    name = "statement_payments"
+    path = "/expense/statement-payments"
+
+    @override
+    def get_url_params(
+        self,
+        context: dict | None,
+        next_page_token: Any | None,
+    ) -> dict[str, Any]:
+        """Date-modified bounds only — no transactions filter."""
+        params = super(TransactionsStream, self).get_url_params(
+            context, next_page_token
+        )
+        date_from, date_to = self._date_modified_bounds(context)
+        params.update(
+            {
+                "date_modified.from": date_from.isoformat(),
+                "date_modified.to": date_to.isoformat(),
+                "include_field_group": "ERP",
+            }
+        )
+        return params
+
+    @override
+    def post_process(self, row: dict, context: dict | None = None) -> dict | None:
+        """Drop statement payment refunds.
+
+           These aren't currently supported by the integration.
+        """
+        if row.get("activity_type") == "Statement Payment Refund":
+            return None
+        return super().post_process(row, context)

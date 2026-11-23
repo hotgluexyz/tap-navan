@@ -11,11 +11,13 @@ from typing_extensions import override
 
 from tap_navan.auth import NavanAuthenticator
 from tap_navan.streams import (
+    StatementPaymentsStream,
     TransactionsStream,
 )
 
 STREAM_TYPES = [
     TransactionsStream,
+    StatementPaymentsStream,
 ]
 
 
